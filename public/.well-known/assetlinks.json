@@ -1,0 +1,12 @@
+
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.schoolerp.app",
+      "sha256_cert_fingerprints": [
+        "E3:C8:2C:49:05:57:6E:30:39:76:BD:F4:4E:E7:1B:C3:7D:FB:A9:F3:F3:01:D6:49:F5:1D:49:9F:CF:A6:77:72"
+      ]
+    }
+  }
+]

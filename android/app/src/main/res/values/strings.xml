@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">School ERP</string>
+    <string name="default_web_url">https://school-erp.vercel.app</string>
+</resources>
