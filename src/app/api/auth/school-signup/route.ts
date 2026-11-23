@@ -27,7 +27,7 @@ async function generateUniqueSchoolCode(): Promise<string> {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { schoolName, schoolAddress, schoolPhone, schoolEmail, directorName, directorPhone, directorEmail, email, password } = body
+        const { schoolName, schoolAddress, schoolPhone, schoolEmail, directorName, directorPhone, directorEmail, email, password, schoolKey } = body
 
         if (!schoolName || !directorName || !email || !password) {
             return NextResponse.json({ error: 'School name, director name, email and password are required' }, { status: 400 })
@@ -37,70 +37,121 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
         }
 
-        const existingUser = await prisma.user.findFirst({ where: { email: email.toLowerCase() } })
-        if (existingUser) {
-            return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 })
+        const normName = schoolName.trim().toLowerCase()
+        const targetSlug = schoolKey === 'mjf' || normName.includes('mjf')
+            ? 'mjf'
+            : (schoolKey === 'shivaji' || normName.includes('shivaji') || normName.includes('chhatrapati'))
+            ? 'shivaji'
+            : generateSlug(schoolName)
+
+        // 1. Check if matching tenant already exists (e.g. tenant_mjf or tenant_shivaji)
+        let existingTenant = await prisma.tenant.findFirst({
+            where: {
+                OR: [
+                    { slug: targetSlug },
+                    { id: targetSlug === 'mjf' ? 'tenant_mjf' : targetSlug === 'shivaji' ? 'tenant_shivaji' : undefined },
+                    { name: { contains: schoolName.trim(), mode: 'insensitive' } }
+                ].filter(Boolean) as any
+            }
+        })
+
+        // 2. If tenant does not exist yet, check total tenant count (Strict limit of 2)
+        if (!existingTenant) {
+            const totalSchools = await prisma.tenant.count()
+            if (totalSchools >= 2) {
+                return NextResponse.json({
+                    error: 'Registration limit reached. Only 2 schools (MJF Convent School & Chhatrapati Shivaji Higher Secondary School) are permitted on this platform. Please select one of these two schools to set up your credentials.',
+                    limitReached: true,
+                }, { status: 403 })
+            }
         }
 
-        // Restriction: max 2 schools (tenants) can be registered on this platform (MJF Convent & Chhatrapati Shivaji)
-        const totalSchools = await prisma.tenant.count()
-        if (totalSchools >= 2) {
-            return NextResponse.json({
-                error: 'Registration limit reached. Only 2 schools are permitted to register on this platform. It is not permitted to register more than 2 schools.',
-                limitReached: true,
-            }, { status: 403 })
-        }
-
-        let baseSlug = generateSlug(schoolName)
-        let slug = baseSlug
-        let count = 1
-        while (await prisma.tenant.findUnique({ where: { slug } })) {
-            slug = baseSlug + '-' + (count++)
-        }
-
-        const schoolCode = await generateUniqueSchoolCode()
         const hashedPassword = await hashPassword(password)
+        const targetEmail = email.toLowerCase().trim()
 
         const result = await prisma.$transaction(async (tx) => {
-            const tenant = await tx.tenant.create({
-                data: {
-                    name: schoolName,
-                    slug,
-                    schoolCode,
-                    address: schoolAddress || null,
-                    phone: schoolPhone || null,
-                    email: schoolEmail || null,
-                    isActive: true,
-                    directorName,
-                    directorPhone: directorPhone || null,
-                    directorEmail: directorEmail || email,
-                }
-            })
+            let tenant = existingTenant
 
-            const user = await tx.user.create({
-                data: {
+            if (tenant) {
+                // Update existing tenant with user-supplied details
+                tenant = await tx.tenant.update({
+                    where: { id: tenant.id },
+                    data: {
+                        name: schoolName,
+                        address: schoolAddress || tenant.address,
+                        phone: schoolPhone || tenant.phone,
+                        email: schoolEmail || tenant.email,
+                        directorName: directorName || tenant.directorName,
+                        directorPhone: directorPhone || tenant.directorPhone,
+                        directorEmail: directorEmail || targetEmail,
+                    }
+                })
+            } else {
+                // Create new tenant (only if < 2 schools exist)
+                const schoolCode = await generateUniqueSchoolCode()
+                tenant = await tx.tenant.create({
+                    data: {
+                        name: schoolName,
+                        slug: targetSlug,
+                        schoolCode,
+                        address: schoolAddress || null,
+                        phone: schoolPhone || null,
+                        email: schoolEmail || null,
+                        isActive: true,
+                        directorName,
+                        directorPhone: directorPhone || null,
+                        directorEmail: directorEmail || targetEmail,
+                    }
+                })
+
+                const trialEnd = new Date()
+                trialEnd.setDate(trialEnd.getDate() + 30)
+                await tx.subscription.create({
+                    data: {
+                        tenantId: tenant.id,
+                        plan: 'BASIC',
+                        status: 'TRIAL',
+                        trialEndsAt: trialEnd,
+                    }
+                })
+            }
+
+            // Find or create the Super Admin for this tenant
+            let user = await tx.user.findFirst({
+                where: {
                     tenantId: tenant.id,
-                    email: email.toLowerCase(),
-                    phone: directorPhone || null,
-                    password: hashedPassword,
-                    plainPassword: password,
-                    name: directorName,
-                    role: 'SUPER_ADMIN',
-                    isActive: true,
+                    role: 'SUPER_ADMIN'
                 }
             })
 
-            const trialEnd = new Date()
-            trialEnd.setDate(trialEnd.getDate() + 30)
-
-            await tx.subscription.create({
-                data: {
-                    tenantId: tenant.id,
-                    plan: 'BASIC',
-                    status: 'TRIAL',
-                    trialEndsAt: trialEnd,
-                }
-            })
+            if (user) {
+                // Update existing Super Admin with new user credentials
+                user = await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        email: targetEmail,
+                        password: hashedPassword,
+                        plainPassword: password,
+                        name: directorName,
+                        phone: directorPhone || user.phone,
+                        isActive: true,
+                    }
+                })
+            } else {
+                // Create Super Admin user
+                user = await tx.user.create({
+                    data: {
+                        tenantId: tenant.id,
+                        email: targetEmail,
+                        phone: directorPhone || null,
+                        password: hashedPassword,
+                        plainPassword: password,
+                        name: directorName,
+                        role: 'SUPER_ADMIN',
+                        isActive: true,
+                    }
+                })
+            }
 
             return { tenant, user }
         })
@@ -109,7 +160,7 @@ export async function POST(req: NextRequest) {
             userId: result.user.id,
             tenantId: result.tenant.id,
             role: 'SUPER_ADMIN',
-            email: email.toLowerCase(),
+            email: result.user.email,
         }
 
         const accessToken = signAccessToken(payload)
@@ -117,7 +168,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: 'School registered successfully! Welcome to School Management System Public School Management System.',
+            message: 'Super Admin credentials setup successfully! Welcome to ' + result.tenant.name,
             accessToken,
             refreshToken,
             user: {
@@ -137,8 +188,8 @@ export async function POST(req: NextRequest) {
                 themeColor: result.tenant.themeColor,
             }
         }, { status: 201 })
-    } catch (error) {
+    } catch (error: any) {
         console.error('School signup error:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
     }
 }

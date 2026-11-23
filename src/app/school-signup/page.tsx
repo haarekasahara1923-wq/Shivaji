@@ -4,6 +4,23 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 
+const PRESET_SCHOOLS = [
+  {
+    key: 'mjf',
+    name: 'MJF Convent School',
+    icon: '🏫',
+    address: 'MJF Convent School, City (State)',
+    email: 'info@mjfconvent.school',
+  },
+  {
+    key: 'shivaji',
+    name: 'Chhatrapati Shivaji Higher Secondary School',
+    icon: '🏛️',
+    address: 'Chhatrapati Shivaji HSS, City (State)',
+    email: 'info@shivajihss.school',
+  },
+]
+
 export default function SchoolSignupPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -12,12 +29,13 @@ export default function SchoolSignupPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [step, setStep] = useState(1) // 1 = school info, 2 = admin info
   const [limitReached, setLimitReached] = useState(false)
+  const [selectedSchoolKey, setSelectedSchoolKey] = useState<'mjf' | 'shivaji' | ''>('mjf')
 
   const [form, setForm] = useState({
-    schoolName: '',
-    schoolAddress: '',
+    schoolName: 'MJF Convent School',
+    schoolAddress: 'MJF Convent School, City (State)',
     schoolPhone: '',
-    schoolEmail: '',
+    schoolEmail: 'info@mjfconvent.school',
     directorName: '',
     directorPhone: '',
     directorEmail: '',
@@ -27,6 +45,18 @@ export default function SchoolSignupPage() {
   })
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSelectPreset = (preset: typeof PRESET_SCHOOLS[0]) => {
+    setSelectedSchoolKey(preset.key as any)
+    setForm(f => ({
+      ...f,
+      schoolName: preset.name,
+      schoolAddress: f.schoolAddress || preset.address,
+      schoolEmail: f.schoolEmail || preset.email,
+    }))
+    setLimitReached(false)
+    setError('')
+  }
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,6 +81,7 @@ export default function SchoolSignupPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          schoolKey: selectedSchoolKey,
           schoolName: form.schoolName,
           schoolAddress: form.schoolAddress,
           schoolPhone: form.schoolPhone,
@@ -80,6 +111,9 @@ export default function SchoolSignupPage() {
       localStorage.setItem('school_erp_user', JSON.stringify(data.user))
       localStorage.setItem('school_erp_tenant', JSON.stringify(data.tenant))
       localStorage.setItem('school_erp_refresh', data.refreshToken)
+      if (selectedSchoolKey) {
+        localStorage.setItem('selected_school', selectedSchoolKey)
+      }
 
       router.push('/dashboard')
     } catch {
@@ -122,34 +156,65 @@ export default function SchoolSignupPage() {
           padding: '20px',
         }}>
           <div style={{
-            maxWidth: '480px', width: '100%',
+            maxWidth: '500px', width: '100%',
             background: 'linear-gradient(135deg, #1a0000, #0d0000)',
             border: '1px solid rgba(239,68,68,0.4)',
             borderRadius: '24px',
-            padding: '40px 36px',
+            padding: '36px 30px',
             textAlign: 'center',
             boxShadow: '0 40px 80px rgba(239,68,68,0.2)',
           }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>🚫</div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#f87171', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '12px' }}>Registration Blocked</div>
-            <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '16px', lineHeight: 1.3 }}>
-              Registration Limit Reached
+            <div style={{ fontSize: '50px', marginBottom: '16px' }}>🏫</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#f87171', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '10px' }}>Platform Multi-Tenant Notice</div>
+            <h2 style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '14px', lineHeight: 1.3 }}>
+              Select Allowed School
             </h2>
-            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
-              <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.7', margin: 0 }}>
-                ⛔ <strong style={{ color: '#fca5a5' }}>It is not permitted to register more than 2 schools</strong> on this platform.
+            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px', textAlign: 'left' }}>
+              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.85)', lineHeight: '1.6', margin: 0 }}>
+                Is platform par sirf <strong style={{ color: '#4ade80' }}>2 schools</strong> allow hain:
               </p>
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7', margin: '10px 0 0 0' }}>
-                Is platform par sirf <strong style={{ color: 'white' }}>2 schools</strong> register ho sakti hain (MJF Convent School & Chhatrapati Shivaji Higher Secondary School). Yeh limit reach ho chuki hai.
+              <ul style={{ margin: '8px 0 0 18px', padding: 0, color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: '1.7' }}>
+                <li><strong>MJF Convent School</strong></li>
+                <li><strong>Chhatrapati Shivaji Higher Secondary School</strong></li>
+              </ul>
+              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '10px 0 0 0' }}>
+                Aap in dono me se kisi bhi school ka Super Admin credentials set karne ke liye neeche select karein.
               </p>
             </div>
-            <a href="/login" style={{
-              display: 'inline-block', padding: '13px 36px',
-              background: 'linear-gradient(135deg, #f97316, #ea580c)',
-              color: 'white', borderRadius: '12px', textDecoration: 'none',
-              fontSize: '14px', fontWeight: '700',
-              boxShadow: '0 8px 24px rgba(249,115,22,0.35)',
-            }}>🔑 Login to Portal →</a>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSelectPreset(PRESET_SCHOOLS[0])
+                  setLimitReached(false)
+                }}
+                style={{
+                  padding: '12px 16px', background: 'rgba(26,92,56,0.3)', border: '1px solid #1a5c38',
+                  borderRadius: '10px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                }}
+              >
+                🏫 Set MJF Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSelectPreset(PRESET_SCHOOLS[1])
+                  setLimitReached(false)
+                }}
+                style={{
+                  padding: '12px 16px', background: 'rgba(249,115,22,0.2)', border: '1px solid #f97316',
+                  borderRadius: '10px', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                }}
+              >
+                🏛️ Set Shivaji Admin
+              </button>
+              <Link href="/login" style={{
+                display: 'inline-block', padding: '12px 20px',
+                background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                color: 'white', borderRadius: '10px', textDecoration: 'none',
+                fontSize: '12px', fontWeight: '700',
+              }}>🔑 Go to Login</Link>
+            </div>
           </div>
         </div>
       )}
@@ -162,19 +227,19 @@ export default function SchoolSignupPage() {
 
       <div style={{ width: '100%', maxWidth: '520px', position: 'relative' }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #1a5c38, #f97316)', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', margin: '0 auto 14px', boxShadow: '0 8px 32px rgba(26,92,56,0.4)' }}>🏫</div>
           <div style={{ fontSize: '11px', fontWeight: '700', color: '#f97316', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>School Management System</div>
           <h1 style={{ fontSize: '24px', fontWeight: '900', color: 'white', lineHeight: 1.2, marginBottom: '8px' }}>
-            School Portal Registration
+            School Super Admin Setup
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
-            🏫 Setup portal for your school (Max 2 schools permitted)
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '13px' }}>
+            Dono branches (MJF & Shivaji) ke Super Admin credentials setup karein
           </p>
         </div>
 
         {/* Step indicator */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center', justifyContent: 'center' }}>
           {[1, 2].map(s => (
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{
@@ -188,22 +253,58 @@ export default function SchoolSignupPage() {
                 {step > s ? '✓' : s}
               </div>
               <span style={{ fontSize: '12px', color: step >= s ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', fontWeight: '600' }}>
-                {s === 1 ? 'School Info' : 'Login Setup'}
+                {s === 1 ? 'School Selection' : 'Login Credentials'}
               </span>
               {s < 2 && <div style={{ width: '40px', height: '1px', background: step > s ? '#f97316' : 'rgba(255,255,255,0.1)' }} />}
             </div>
           ))}
         </div>
 
-        <div style={{ background: '#111a0e', border: '1px solid rgba(26,92,56,0.3)', borderRadius: '20px', padding: '32px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ background: '#111a0e', border: '1px solid rgba(26,92,56,0.3)', borderRadius: '20px', padding: '28px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
 
           {step === 1 && (
             <form onSubmit={handleNext}>
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ padding: '10px 14px', background: 'rgba(26,92,56,0.15)', border: '1px solid rgba(45,138,87,0.3)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: '1.6' }}>
-                  🏫 <strong style={{ color: '#4ade80' }}>Step 1:</strong> School details enter karein
+              {/* Branch quick selector */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={labelStyle}>Select School Branch *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {PRESET_SCHOOLS.map(school => {
+                    const isSelected = selectedSchoolKey === school.key
+                    return (
+                      <button
+                        key={school.key}
+                        type="button"
+                        onClick={() => handleSelectPreset(school)}
+                        style={{
+                          padding: '14px 10px',
+                          borderRadius: '12px',
+                          border: isSelected ? '2px solid #f97316' : '2px solid rgba(26,92,56,0.3)',
+                          background: isSelected
+                            ? 'linear-gradient(135deg, rgba(249,115,22,0.2), rgba(26,92,56,0.3))'
+                            : 'rgba(255,255,255,0.03)',
+                          color: isSelected ? 'white' : 'rgba(255,255,255,0.5)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textAlign: 'center',
+                          transition: 'all 0.2s',
+                          boxShadow: isSelected ? '0 4px 20px rgba(249,115,22,0.25)' : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: '24px' }}>{school.icon}</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', lineHeight: '1.3' }}>{school.name}</span>
+                        {isSelected && (
+                          <span style={{ fontSize: '10px', color: '#f97316', fontWeight: '800' }}>✓ SELECTED</span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
+              </div>
 
+              <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>School / Institution Name *</label>
                 <input
                   type="text" required value={form.schoolName}
@@ -239,7 +340,7 @@ export default function SchoolSignupPage() {
                   required value={form.schoolAddress}
                   onChange={e => set('schoolAddress', e.target.value)}
                   placeholder="Full address of the school"
-                  rows={3}
+                  rows={2}
                   style={{ ...inputStyle, resize: 'vertical' as const }}
                 />
               </div>
@@ -277,8 +378,8 @@ export default function SchoolSignupPage() {
 
           {step === 2 && (
             <form onSubmit={handleSubmit}>
-              <div style={{ padding: '10px 14px', background: 'rgba(26,92,56,0.15)', border: '1px solid rgba(45,138,87,0.3)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: '1.6' }}>
-                🔐 <strong style={{ color: '#4ade80' }}>Step 2:</strong> School Super Admin login setup karein
+              <div style={{ padding: '12px 14px', background: 'rgba(26,92,56,0.2)', border: '1px solid rgba(45,138,87,0.35)', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', color: 'rgba(255,255,255,0.85)', lineHeight: '1.6' }}>
+                🔐 Setup Super Admin login for <strong style={{ color: '#f97316' }}>{form.schoolName}</strong>
               </div>
 
               <div style={{ marginBottom: '16px' }}>
@@ -334,7 +435,7 @@ export default function SchoolSignupPage() {
                 </button>
                 <button type="submit" disabled={loading}
                   style={{ flex: 2, padding: '13px', background: loading ? 'rgba(26,92,56,0.5)' : 'linear-gradient(135deg, #1a5c38, #f97316)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: loading ? 'none' : '0 4px 20px rgba(249,115,22,0.35)' }}>
-                  {loading ? '🔄 Setting up School...' : '🚀 Launch School Portal'}
+                  {loading ? '🔄 Setting up School...' : '🚀 Save & Login to Dashboard'}
                 </button>
               </div>
             </form>
@@ -343,7 +444,7 @@ export default function SchoolSignupPage() {
 
         <div style={{ textAlign: 'center', marginTop: '20px' }}>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
-            Already registered?{' '}
+            Already have credentials?{' '}
             <Link href="/login" style={{ color: '#f97316', fontWeight: '700', textDecoration: 'none' }}>Sign in here →</Link>
           </p>
         </div>
