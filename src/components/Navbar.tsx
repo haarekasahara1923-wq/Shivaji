@@ -30,10 +30,12 @@ export default function Navbar() {
     }}>
       <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
         <div style={{
-          width: '36px', height: '36px',
-          background: 'linear-gradient(135deg, #1a5c38, #f97316)',
-          borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px',
-        }}>🏫</div>
+          width: '38px', height: '38px',
+          borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden'
+        }}>
+          <img src="/logo.png" alt="School Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
         <span style={{ fontSize: '18px', fontWeight: '800', color: 'white' }}>School<span style={{ color: '#f97316' }}> ERP</span></span>
       </Link>
 

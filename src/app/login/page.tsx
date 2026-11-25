@@ -96,7 +96,9 @@ function LoginForm() {
       <div style={{ width: '100%', maxWidth: '480px', position: 'relative' }}>
         {/* Logo / Header */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #1a5c38, #f97316)', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', margin: '0 auto 14px', boxShadow: '0 8px 32px rgba(26,92,56,0.4)' }}>🏫</div>
+          <div style={{ width: '64px', height: '64px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', overflow: 'hidden' }}>
+            <img src="/logo.png" alt="School Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
           <div style={{ fontSize: '11px', fontWeight: '700', color: '#f97316', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>School Management System</div>
           <h1 style={{ fontSize: '22px', fontWeight: '900', color: 'white', lineHeight: 1.2 }}>
             {currentSchool ? currentSchool.label : 'School Portal Login'}

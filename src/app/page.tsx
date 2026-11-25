@@ -86,7 +86,9 @@ export default function LandingPage() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '42px', height: '42px', background: 'linear-gradient(135deg, #1a5c38, #2d8a57)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', boxShadow: '0 4px 16px rgba(26,92,56,0.4)' }}>🏫</div>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <img src="/logo.png" alt="School Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
           <div>
             <div style={{ fontSize: '15px', fontWeight: '900', color: 'white', letterSpacing: '-0.5px', lineHeight: 1.2 }}>School Management System</div>
             <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', fontWeight: '600', textTransform: 'uppercase' }}>School ERP Portal</div>
