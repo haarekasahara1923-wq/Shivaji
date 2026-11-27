@@ -19,12 +19,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ even
                             select: {
                                 fullName: true,
                                 fatherName: true,
+                                motherName: true,
                                 dob: true,
                                 photo: true,
                                 scholarNo: true,
+                                tcGenerated: true,
+                                status: true,
+                                userAccount: { select: { isActive: true } },
                             }
                         }
-                    }
+                    },
+                    orderBy: { createdAt: 'asc' }
                 }
             }
         })
@@ -51,7 +56,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
             return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 })
         }
 
-        // Verify event belongs to tenant
         const event = await prisma.admitCardEvent.findUnique({
             where: { id: eventId, tenantId: user!.tenantId }
         })
@@ -67,14 +71,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
                 where: { eventId, studentId: { in: studentIds }, tenantId: user!.tenantId },
                 data: { isBlocked: false }
             })
-        } else if (action === 'publish') {
-            // Can only publish if not blocked OR if superAdminApproved is true
-            // So we'll fetch them and filter
-            const cards = await prisma.admitCard.findMany({
-                where: { eventId, studentId: { in: studentIds }, tenantId: user!.tenantId }
+        } else if (action === 'unpublish') {
+            await prisma.admitCard.updateMany({
+                where: { eventId, studentId: { in: studentIds }, tenantId: user!.tenantId },
+                data: { isPublished: false }
             })
-            
-            const toPublish = cards.filter(c => !c.isBlocked || c.superAdminApproved).map(c => c.id)
+        } else if (action === 'publish') {
+            const cards = await prisma.admitCard.findMany({
+                where: { eventId, studentId: { in: studentIds }, tenantId: user!.tenantId },
+                include: {
+                    student: {
+                        select: {
+                            status: true,
+                            tcGenerated: true,
+                            userAccount: { select: { isActive: true } }
+                        }
+                    }
+                }
+            })
+
+            const toPublish = cards
+                .filter(c =>
+                    c.student.status === 'ACTIVE' &&
+                    !c.student.tcGenerated &&
+                    c.student.userAccount?.isActive !== false &&
+                    (!c.isBlocked || c.superAdminApproved)
+                )
+                .map(c => c.id)
 
             if (toPublish.length > 0) {
                 await prisma.admitCard.updateMany({
@@ -83,10 +106,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
                 })
             }
             if (toPublish.length < studentIds.length) {
-                return NextResponse.json({ success: true, message: `Published ${toPublish.length} cards. Some were blocked and require super admin approval.` })
+                return NextResponse.json({
+                    success: true,
+                    message: `Published ${toPublish.length} cards. Blocked or TC-generated students were skipped.`
+                })
             }
         } else if (action === 'approve') {
-            // Super Admin only action
             if (user!.role !== 'SUPER_ADMIN' && user!.role !== 'COACHING_ADMIN') {
                 return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
             }

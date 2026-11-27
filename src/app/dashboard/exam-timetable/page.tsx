@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
+import { getRollNumberPreview } from '@/lib/admitCardUtils'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
@@ -216,13 +217,31 @@ export default function DashboardExamTimetable() {
     if (!courseId) {
       setBatches([])
       setClassStudentCount(null)
+      setRows([])
       return
+    }
+    const selectedCourseObj = courses.find(c => c.id === courseId)
+    if (selectedCourseObj && Array.isArray(selectedCourseObj.subjects) && selectedCourseObj.subjects.length > 0) {
+      setRows(
+        selectedCourseObj.subjects.map((sub: string) => ({
+          date: '',
+          subject: sub,
+          startTime: '09:00',
+          endTime: '12:00',
+          duration: '3h',
+        }))
+      )
+    } else {
+      setRows([])
     }
     fetchBatches(courseId)
     try {
-      const res = await fetch(`/api/students?courseId=${courseId}`, { headers })
+      const res = await fetch(`/api/students?courseId=${courseId}&status=ACTIVE`, { headers })
       const data = await res.json()
-      if (data.success) setClassStudentCount(data.data?.length || 0)
+      if (data.success) {
+        const eligibleCount = (data.data || []).filter((s: any) => !s.tcGenerated && s.status === 'ACTIVE').length
+        setClassStudentCount(eligibleCount)
+      }
     } catch {
       setClassStudentCount(null)
     }
@@ -454,7 +473,14 @@ export default function DashboardExamTimetable() {
                 </select>
                 {classStudentCount !== null && (
                   <div style={{ fontSize: '12px', color: classStudentCount > 0 ? '#10b981' : '#ef4444', fontWeight: '700', marginTop: '6px' }}>
-                    {classStudentCount > 0 ? `👥 ${classStudentCount} Active Students will receive this Admit Card` : '⚠️ No active students found in this class'}
+                    {classStudentCount > 0
+                      ? `👥 ${classStudentCount} Eligible Active Students (TC & Blocked excluded)`
+                      : '⚠️ No eligible active students found in this class'}
+                  </div>
+                )}
+                {selectedCourse && (
+                  <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '700', marginTop: '4px' }}>
+                    🎫 Auto Roll No Series: {getRollNumberPreview(courses.find(c => c.id === selectedCourse)?.name || '')}
                   </div>
                 )}
               </div>

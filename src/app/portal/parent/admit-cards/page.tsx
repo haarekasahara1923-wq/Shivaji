@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import { generateAdmitCardsPrintHTML } from '@/lib/admitCardUtils'
 
 export default function ParentAdmitCards() {
     const { token } = useAuth()
@@ -25,12 +26,20 @@ export default function ParentAdmitCards() {
             .catch(() => setLoading(false))
     }, [token])
 
-    const downloadPDF = (cardId: string) => {
-        const el = document.getElementById(`print-card-${cardId}`)
-        if (!el) return
-        el.classList.add('printing-now')
-        window.print()
-        el.classList.remove('printing-now')
+    const downloadPDF = (card: any) => {
+        const eventDetails = {
+            ...card.event,
+            admitCards: [card],
+        }
+        const html = generateAdmitCardsPrintHTML(eventDetails, card.tenant, [card])
+        const win = window.open('', '_blank', 'width=950,height=750')
+        if (!win) {
+            alert('Please allow popups to download/print your Admit Card PDF.')
+            return
+        }
+        win.document.open()
+        win.document.write(html)
+        win.document.close()
     }
 
     if (loading) return (
@@ -135,10 +144,12 @@ export default function ParentAdmitCards() {
                                 {/* Student Info Grid */}
                                 <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                     {[
+                                        { label: "Roll No", value: card.rollNo || card.student.scholarNo || 'N/A' },
+                                        { label: "Scholar No", value: card.student.scholarNo || 'N/A' },
                                         { label: "Student's Name", value: card.student.fullName },
-                                        { label: "Scholar No / Roll No", value: card.student.scholarNo || 'N/A' },
-                                        { label: "Father's Name", value: card.student.fatherName || 'N/A' },
                                         { label: "Class & Section", value: `${card.event.course.name} - ${card.event.batch.name}` },
+                                        { label: "Father's Name", value: card.student.fatherName || 'N/A' },
+                                        { label: "Mother's Name", value: card.student.motherName || 'N/A' },
                                         { label: "Date of Birth", value: card.student.dob ? new Date(card.student.dob).toLocaleDateString('en-IN') : 'N/A' },
                                     ].map(field => (
                                         <div key={field.label}>
@@ -219,7 +230,7 @@ export default function ParentAdmitCards() {
 
                     {/* Download Button */}
                     <button
-                        onClick={() => downloadPDF(card.id)}
+                        onClick={() => downloadPDF(card)}
                         className="no-print"
                         style={{
                             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
